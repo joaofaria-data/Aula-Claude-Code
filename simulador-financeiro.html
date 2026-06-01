@@ -3,899 +3,981 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Simulador Financeiro</title>
+  <title>Capital · Simulador de Patrimônio</title>
+
+  <!-- Fontes distintivas: Syne (display) · Sora (corpo) · JetBrains Mono (dados) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
   <style>
     :root {
-      --bg:        #080810;
-      --surface:   #0f0f1a;
-      --card:      #13131f;
-      --border:    #1e1e30;
-      --green:     #00ff88;
-      --cyan:      #00e5ff;
-      --purple:    #a855f7;
-      --text:      #e2e8f0;
-      --muted:     #64748b;
-      --glow-g:    0 0 18px #00ff8866;
-      --glow-c:    0 0 18px #00e5ff66;
-      --glow-p:    0 0 18px #a855f766;
+      --bg:        #05060a;
+      --bg-2:      #080a12;
+      --surface:   #0b0d16;
+      --card:      #0e1019;
+      --card-2:    #11131f;
+      --border:    #1c1f2e;
+      --border-lit:#262a3d;
+
+      --green:  #5cffb1;
+      --aqua:   #2ee6e6;
+      --purple: #a06bff;
+      --amber:  #ffb15c;
+
+      --text:   #e8ecf4;
+      --text-2: #aeb6c7;
+      --muted:  #5b6479;
+
+      --glow-g: 0 0 22px rgba(92,255,177,.35);
+      --glow-a: 0 0 22px rgba(46,230,230,.35);
+      --glow-p: 0 0 22px rgba(160,107,255,.40);
+
+      --r: 18px;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *      { box-sizing: border-box; margin: 0; padding: 0; }
+    html   { scroll-behavior: smooth; }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Sora', system-ui, sans-serif;
+      font-weight: 300;
       min-height: 100vh;
-      padding: 2rem 1rem;
-      background-image:
-        radial-gradient(ellipse 60% 40% at 10% 5%, #00ff8808 0%, transparent 60%),
-        radial-gradient(ellipse 50% 35% at 90% 90%, #a855f708 0%, transparent 60%),
-        radial-gradient(ellipse 40% 30% at 50% 50%, #00e5ff04 0%, transparent 70%);
+      padding: clamp(1.25rem, 3vw, 3rem) clamp(1rem, 3vw, 2.5rem) 4rem;
+      position: relative;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    h1 {
-      text-align: center;
-      font-size: clamp(1.5rem, 4vw, 2.2rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.25rem;
+    /* Atmosfera: malha de gradientes neon + leve grão */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(60% 50% at 8% -5%,  rgba(92,255,177,.10) 0%, transparent 60%),
+        radial-gradient(55% 45% at 100% 8%, rgba(160,107,255,.13) 0%, transparent 60%),
+        radial-gradient(50% 50% at 50% 110%,rgba(46,230,230,.08) 0%, transparent 60%);
     }
-    h1 span.g { color: var(--green); text-shadow: var(--glow-g); }
-    h1 span.c { color: var(--cyan);  text-shadow: var(--glow-c); }
-    h1 span.p { color: var(--purple);text-shadow: var(--glow-p); }
-
-    .subtitle {
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 2.5rem;
+    body::after {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
+    .wrap { position: relative; z-index: 1; }
 
-    .layout {
-      max-width: 1280px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 360px 1fr;
+    /* ── Cabeçalho ── */
+    header {
+      max-width: 1320px;
+      margin: 0 auto 2.25rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
       gap: 1.5rem;
-      align-items: start;
+      flex-wrap: wrap;
     }
-
-    @media (max-width: 900px) {
-      .layout { grid-template-columns: 1fr; }
-    }
-
-    /* ── Cards ── */
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.5rem;
-    }
-
-    .card-title {
-      font-size: 0.7rem;
+    .brand { display: flex; flex-direction: column; gap: .35rem; }
+    .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem;
+      letter-spacing: .34em;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
       color: var(--muted);
-      margin-bottom: 1.2rem;
+      display: flex; align-items: center; gap: .6rem;
     }
-
-    /* ── Sliders ── */
-    .slider-group { margin-bottom: 1.5rem; }
-    .slider-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 0.5rem;
-    }
-    .slider-label { font-size: 0.88rem; color: var(--text); }
-    .slider-value {
-      font-size: 1rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-    }
-    .v-green  { color: var(--green);  text-shadow: var(--glow-g); }
-    .v-cyan   { color: var(--cyan);   text-shadow: var(--glow-c); }
-    .v-purple { color: var(--purple); text-shadow: var(--glow-p); }
-
-    input[type=range] {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 4px;
-      border-radius: 4px;
-      outline: none;
-      cursor: pointer;
-    }
-    input[type=range].green  { background: linear-gradient(to right, var(--green) var(--pct,0%), var(--border) var(--pct,0%)); }
-    input[type=range].cyan   { background: linear-gradient(to right, var(--cyan)  var(--pct,0%), var(--border) var(--pct,0%)); }
-    input[type=range].purple { background: linear-gradient(to right, var(--purple)var(--pct,0%), var(--border) var(--pct,0%)); }
-    input[type=range].orange { background: linear-gradient(to right, #fb923c      var(--pct,0%), var(--border) var(--pct,0%)); }
-
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      border: 2px solid var(--bg);
-      cursor: pointer;
-      transition: transform .15s;
-    }
-    input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.3); }
-    input[type=range].green::-webkit-slider-thumb  { background: var(--green);  box-shadow: var(--glow-g); }
-    input[type=range].cyan::-webkit-slider-thumb   { background: var(--cyan);   box-shadow: var(--glow-c); }
-    input[type=range].purple::-webkit-slider-thumb { background: var(--purple); box-shadow: var(--glow-p); }
-    input[type=range].orange::-webkit-slider-thumb { background: #fb923c; box-shadow: 0 0 10px #fb923c88; }
-
-    /* ── Preset pills ── */
-    .presets {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      margin-bottom: 1.5rem;
-    }
-    .preset-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      border-radius: 8px;
-      padding: 0.3rem 0.75rem;
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: all .2s;
-    }
-    .preset-btn:hover,
-    .preset-btn.active {
-      border-color: var(--cyan);
-      color: var(--cyan);
-      background: #00e5ff0f;
-      box-shadow: var(--glow-c);
-    }
-
-    /* ── Radio tabs (investment type) ── */
-    .radio-tabs {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-      flex-wrap: wrap;
-    }
-    .radio-tabs label {
-      flex: 1;
-      min-width: 80px;
-      text-align: center;
-      padding: 0.45rem 0.5rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      font-size: 0.75rem;
-      cursor: pointer;
-      transition: all .2s;
-      color: var(--muted);
-      background: var(--surface);
-    }
-    .radio-tabs input { display: none; }
-    .radio-tabs input:checked + label {
-      border-color: var(--purple);
-      color: var(--purple);
-      background: #a855f70f;
-      box-shadow: var(--glow-p);
-    }
-
-    /* ── Stat tiles ── */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.75rem;
-      margin-bottom: 1.5rem;
-    }
-    .stat-tile {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem;
-    }
-    .stat-tile .label { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.3rem; }
-    .stat-tile .value {
-      font-size: 1.15rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-    .stat-tile .delta { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
-
-    /* ── Chart area ── */
-    .chart-area {
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
-    }
-
-    .chart-wrap {
-      position: relative;
-      width: 100%;
-      height: 320px;
-    }
-
-    /* ── FIRE indicator ── */
-    .fire-bar {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem 1.25rem;
-    }
-    .fire-bar-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.75rem;
-    }
-    .fire-bar-title { font-size: 0.8rem; color: var(--muted); }
-    .fire-bar-value { font-size: 0.9rem; font-weight: 700; color: var(--purple); text-shadow: var(--glow-p); }
-    .track {
-      height: 8px;
-      background: var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .fill {
-      height: 100%;
-      border-radius: 8px;
-      background: linear-gradient(90deg, var(--purple), var(--cyan));
-      box-shadow: 0 0 12px #a855f755;
-      transition: width .5s ease;
-    }
-
-    /* ── Milestone dots ── */
-    .milestones {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 0.75rem;
-    }
-    .milestone {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.75rem;
-      text-align: center;
-    }
-    .milestone .m-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.25rem; }
-    .milestone .m-value { font-size: 0.95rem; font-weight: 700; }
-    .milestone .m-year  { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
-
-    /* ── Toggle switch ── */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1.2rem;
-    }
-    .toggle-row .toggle-label { font-size: 0.83rem; color: var(--muted); flex: 1; }
-    .toggle {
-      position: relative;
-      width: 38px; height: 20px;
-      cursor: pointer;
-    }
-    .toggle input { display: none; }
-    .toggle-track {
-      width: 100%;
-      height: 100%;
-      border-radius: 20px;
-      background: var(--border);
-      transition: background .2s;
-      border: 1px solid var(--border);
-    }
-    .toggle input:checked ~ .toggle-track {
+    .eyebrow::before {
+      content: "";
+      width: 7px; height: 7px; border-radius: 50%;
       background: var(--green);
       box-shadow: var(--glow-g);
+      animation: pulse 2.4s ease-in-out infinite;
     }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.1rem, 5.5vw, 3.4rem);
+      line-height: .95;
+      letter-spacing: -.03em;
+    }
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(110deg, var(--green), var(--aqua) 55%, var(--purple));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline {
+      color: var(--text-2);
+      font-size: .95rem;
+      max-width: 30ch;
+      line-height: 1.5;
+    }
+    .head-stat {
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .head-stat .hs-label {
+      font-size: .66rem; letter-spacing: .22em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: .35rem;
+    }
+    .head-stat .hs-value {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 700;
+      color: var(--green);
+      text-shadow: var(--glow-g);
+      transition: color .3s;
+    }
+    .head-stat .hs-sub { font-size: .72rem; color: var(--muted); margin-top: .2rem; }
+
+    /* ── Grid principal ── */
+    .layout {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+    .col { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ── Cartões ── */
+    .card {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.02), transparent 40%),
+        var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.5rem;
+      position: relative;
+    }
+    .card::before {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: var(--r);
+      padding: 1px;
+      background: linear-gradient(160deg, rgba(255,255,255,.06), transparent 30%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      pointer-events: none;
+    }
+    .card-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .2em;
+      color: var(--muted);
+      margin-bottom: 1.3rem;
+      display: flex; align-items: center; gap: .55rem;
+    }
+    .card-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot-g { background: var(--green);  box-shadow: var(--glow-g); }
+    .dot-a { background: var(--aqua);   box-shadow: var(--glow-a); }
+    .dot-p { background: var(--purple); box-shadow: var(--glow-p); }
+
+    /* ── Sliders ── */
+    .slider-group { margin-bottom: 1.6rem; }
+    .slider-group:last-child { margin-bottom: 0; }
+    .slider-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: .7rem;
+    }
+    .slider-label { font-size: .9rem; color: var(--text-2); font-weight: 400; }
+    .slider-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05rem; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .slider-value small { font-size: .7rem; font-weight: 400; color: var(--muted); }
+    .v-green  { color: var(--green);  text-shadow: var(--glow-g); }
+    .v-aqua   { color: var(--aqua);   text-shadow: var(--glow-a); }
+    .v-purple { color: var(--purple); text-shadow: var(--glow-p); }
+    .v-amber  { color: var(--amber); }
+
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px; border-radius: 6px;
+      outline: none; cursor: grab;
+      background: var(--border);
+    }
+    input[type=range]:active { cursor: grabbing; }
+    input[type=range].green  { background: linear-gradient(to right, var(--green)  var(--pct,0%), var(--border) var(--pct,0%)); }
+    input[type=range].aqua   { background: linear-gradient(to right, var(--aqua)   var(--pct,0%), var(--border) var(--pct,0%)); }
+    input[type=range].purple { background: linear-gradient(to right, var(--purple) var(--pct,0%), var(--border) var(--pct,0%)); }
+    input[type=range].amber  { background: linear-gradient(to right, var(--amber)  var(--pct,0%), var(--border) var(--pct,0%)); }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 3px solid var(--bg);
+      cursor: grab; transition: transform .15s ease;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 3px solid var(--bg); cursor: grab;
+    }
+    input[type=range]:hover::-webkit-slider-thumb,
+    input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); }
+    input[type=range].green::-webkit-slider-thumb  { background: var(--green);  box-shadow: var(--glow-g); }
+    input[type=range].aqua::-webkit-slider-thumb   { background: var(--aqua);   box-shadow: var(--glow-a); }
+    input[type=range].purple::-webkit-slider-thumb { background: var(--purple); box-shadow: var(--glow-p); }
+    input[type=range].amber::-webkit-slider-thumb  { background: var(--amber);  box-shadow: 0 0 14px rgba(255,177,92,.4); }
+    input[type=range].green::-moz-range-thumb  { background: var(--green); }
+    input[type=range].aqua::-moz-range-thumb   { background: var(--aqua); }
+    input[type=range].purple::-moz-range-thumb { background: var(--purple); }
+    input[type=range].amber::-moz-range-thumb  { background: var(--amber); }
+
+    .range-meta {
+      display: flex; justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .62rem; color: var(--muted); margin-top: .4rem;
+    }
+
+    .derived {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface);
+      border: 1px dashed var(--border-lit);
+      border-radius: 12px;
+      padding: .75rem 1rem;
+      margin-top: 1.2rem;
+    }
+    .derived .d-label { font-size: .8rem; color: var(--muted); }
+    .derived .d-value {
+      font-family: 'JetBrains Mono', monospace; font-weight: 700;
+      font-size: 1.05rem; color: var(--aqua); text-shadow: var(--glow-a);
+    }
+
+    hr.divider { border: none; border-top: 1px solid var(--border); margin: 1.4rem 0; }
+
+    /* ── Pills de preset ── */
+    .presets { display: flex; gap: .45rem; flex-wrap: wrap; margin-top: 1rem; }
+    .preset-btn {
+      flex: 1; min-width: 48px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      border-radius: 10px;
+      padding: .45rem .2rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .76rem; cursor: pointer;
+      transition: all .18s ease;
+    }
+    .preset-btn:hover { border-color: var(--border-lit); color: var(--text); }
+    .preset-btn.active {
+      border-color: var(--purple); color: var(--purple);
+      background: rgba(160,107,255,.08); box-shadow: var(--glow-p);
+    }
+
+    /* ── Tabs de investimento ── */
+    .radio-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .radio-tabs > div { display: contents; }
+    .radio-tabs input { display: none; }
+    .radio-tabs label {
+      display: block; text-align: center;
+      padding: .65rem .4rem; border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: .82rem; color: var(--text-2);
+      cursor: pointer; transition: all .18s ease;
+    }
+    .radio-tabs label small {
+      display: block; font-family: 'JetBrains Mono', monospace;
+      font-size: .66rem; color: var(--muted); margin-top: .2rem;
+    }
+    .radio-tabs label:hover { border-color: var(--border-lit); }
+    .radio-tabs input:checked + label {
+      border-color: var(--aqua); color: var(--aqua);
+      background: rgba(46,230,230,.07); box-shadow: var(--glow-a);
+    }
+    .radio-tabs input:checked + label small { color: var(--aqua); }
+
+    /* ── Toggles ── */
+    .toggle-row {
+      display: flex; align-items: center; gap: .85rem;
+      padding: .55rem 0;
+    }
+    .toggle-row .toggle-label { font-size: .85rem; color: var(--text-2); flex: 1; line-height: 1.3; }
+    .toggle { position: relative; width: 42px; height: 23px; cursor: pointer; flex-shrink: 0; }
+    .toggle input { display: none; }
+    .toggle-track {
+      width: 100%; height: 100%; border-radius: 23px;
+      background: var(--border); border: 1px solid var(--border-lit);
+      transition: all .2s ease;
+    }
+    .toggle input:checked ~ .toggle-track { background: var(--green); box-shadow: var(--glow-g); border-color: transparent; }
     .toggle-thumb {
-      position: absolute;
-      top: 3px; left: 3px;
-      width: 14px; height: 14px;
-      border-radius: 50%;
-      background: var(--text);
-      transition: left .2s;
+      position: absolute; top: 3px; left: 3px;
+      width: 17px; height: 17px; border-radius: 50%;
+      background: var(--text); transition: left .2s ease;
     }
-    .toggle input:checked ~ .toggle-thumb { left: 21px; }
+    .toggle input:checked ~ .toggle-thumb { left: 22px; background: #04130c; }
 
-    .divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 1.2rem 0;
+    /* ── KPIs ── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+    }
+    @media (max-width: 1180px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+    .stat-tile {
+      background:
+        radial-gradient(120% 100% at 0% 0%, rgba(255,255,255,.03), transparent 50%),
+        var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.15rem 1.2rem;
+      position: relative; overflow: hidden;
+    }
+    .stat-tile .label {
+      font-size: .68rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .12em; margin-bottom: .5rem;
+    }
+    .stat-tile .value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.45rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+      letter-spacing: -.02em;
+    }
+    .stat-tile .delta { font-size: .7rem; color: var(--muted); margin-top: .35rem; }
+    .stat-tile .spark {
+      position: absolute; right: -2px; bottom: -2px; width: 80px; height: 36px; opacity: .5;
     }
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; }
+    /* ── Gráficos ── */
+    .chart-wrap { position: relative; width: 100%; height: 340px; }
+    .chart-wrap.short { height: 200px; }
+    .legend { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+    .legend span {
+      font-family: 'JetBrains Mono', monospace; font-size: .7rem;
+      color: var(--text-2); display: inline-flex; align-items: center; gap: .4rem;
+    }
+    .legend i { width: 18px; height: 3px; border-radius: 3px; display: inline-block; }
+
+    .card-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap;
+    }
+
+    /* ── Barra FIRE / meta ── */
+    .fire-bar { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 1.3rem 1.5rem; }
+    .fire-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .9rem; }
+    .fire-title { font-size: .85rem; color: var(--text-2); }
+    .fire-pct { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.1rem; color: var(--purple); text-shadow: var(--glow-p); }
+    .track { height: 10px; background: var(--border); border-radius: 10px; overflow: hidden; position: relative; }
+    .fill {
+      height: 100%; border-radius: 10px;
+      background: linear-gradient(90deg, var(--purple), var(--aqua) 80%, var(--green));
+      box-shadow: 0 0 16px rgba(160,107,255,.5);
+      transition: width .6s cubic-bezier(.2,.8,.2,1);
+      width: 0%;
+    }
+    .fire-foot {
+      display: flex; justify-content: space-between; margin-top: .65rem;
+      font-family: 'JetBrains Mono', monospace; font-size: .7rem; color: var(--muted);
+    }
+    .fire-foot b { color: var(--green); font-weight: 700; }
+
+    /* ── Marcos ── */
+    .milestones { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .8rem; }
+    .milestone {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: .9rem 1rem;
+      transition: border-color .2s, transform .2s;
+    }
+    .milestone.reached { border-color: var(--border-lit); }
+    .milestone.reached:hover { transform: translateY(-2px); }
+    .milestone .m-label { font-size: .72rem; color: var(--muted); margin-bottom: .5rem; line-height: 1.3; min-height: 2.4em; }
+    .milestone .m-value { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 700; }
+    .milestone .m-target { font-family: 'JetBrains Mono', monospace; font-size: .68rem; color: var(--muted); margin-top: .25rem; }
+    .milestone.locked .m-value { color: var(--muted); text-shadow: none; }
+
+    /* ── Modo meta (goal seek) ── */
+    .goal-result {
+      margin-top: 1.2rem; padding: 1rem 1.2rem;
+      background: linear-gradient(135deg, rgba(160,107,255,.08), rgba(46,230,230,.05));
+      border: 1px solid var(--border-lit); border-radius: 14px;
+      font-size: .9rem; line-height: 1.6; color: var(--text-2);
+    }
+    .goal-result b { font-family: 'JetBrains Mono', monospace; }
+
+    footer {
+      max-width: 1320px; margin: 3rem auto 0; text-align: center;
+      font-size: .75rem; color: var(--muted); line-height: 1.7;
+    }
+    footer code { font-family: 'JetBrains Mono', monospace; color: var(--text-2); }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: var(--surface); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--border-lit); border-radius: 4px; }
+
+    /* entrada suave */
+    .anim { opacity: 0; transform: translateY(14px); animation: rise .6s cubic-bezier(.2,.8,.2,1) forwards; }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+    .d1{animation-delay:.05s}.d2{animation-delay:.12s}.d3{animation-delay:.19s}
+    .d4{animation-delay:.26s}.d5{animation-delay:.33s}.d6{animation-delay:.4s}
   </style>
 </head>
 <body>
+<div class="wrap">
 
-<h1><span class="g">Simula</span><span class="c">dor</span> <span class="p">Financeiro</span></h1>
-<p class="subtitle">Projete seu patrimônio com juros compostos · Poupança · CDB · Tesouro</p>
+  <header>
+    <div class="brand anim d1">
+      <span class="eyebrow">Simulador de Independência Financeira</span>
+      <h1><em>Capital</em> Composto</h1>
+      <p class="tagline">Arraste os controles e veja, ano a ano, até onde seus aportes podem te levar.</p>
+    </div>
+    <div class="head-stat anim d2">
+      <div class="hs-label">Patrimônio projetado</div>
+      <div class="hs-value" id="hs-total">—</div>
+      <div class="hs-sub" id="hs-sub">—</div>
+    </div>
+  </header>
 
-<div class="layout">
+  <div class="layout">
 
-  <!-- ── LEFT PANEL ── -->
-  <div style="display:flex;flex-direction:column;gap:1rem;">
+    <!-- ── PAINEL ESQUERDO ── -->
+    <div class="col">
 
-    <!-- Salário -->
-    <div class="card">
-      <div class="card-title">Renda &amp; Aporte</div>
+      <!-- Renda & aporte -->
+      <section class="card anim d2">
+        <div class="card-title"><span class="dot dot-g"></span> Renda &amp; Aporte</div>
 
-      <div class="slider-group">
-        <div class="slider-header">
-          <span class="slider-label">Salário mensal</span>
-          <span class="slider-value v-green" id="lbl-salary">R$ 7.000</span>
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Salário / renda mensal</span>
+            <span class="slider-value v-green" id="lbl-salary">R$ 7.000</span>
+          </div>
+          <input type="range" id="sl-salary" class="green" min="1000" max="50000" step="100" value="7000" />
+          <div class="range-meta"><span>R$ 1k</span><span>R$ 50k</span></div>
         </div>
-        <input type="range" id="sl-salary" class="green"
-               min="1000" max="50000" step="500" value="7000" />
-      </div>
 
-      <div class="slider-group">
-        <div class="slider-header">
-          <span class="slider-label">% guardado por mês</span>
-          <span class="slider-value v-cyan" id="lbl-pct">10%</span>
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Quanto você guarda por mês</span>
+            <span class="slider-value v-aqua" id="lbl-pct">10%</span>
+          </div>
+          <input type="range" id="sl-pct" class="aqua" min="1" max="70" step="1" value="10" />
+          <div class="range-meta"><span>1%</span><span>70%</span></div>
         </div>
-        <input type="range" id="sl-pct" class="cyan"
-               min="1" max="70" step="1" value="10" />
-      </div>
 
-      <div class="slider-header" style="margin-bottom:.4rem;">
-        <span class="slider-label" style="font-size:.8rem;color:var(--muted)">Aporte mensal</span>
-        <span style="font-size:.9rem;font-weight:700;color:var(--text)" id="lbl-contribution">R$ 700</span>
-      </div>
-
-      <hr class="divider" />
-
-      <div class="card-title">Período</div>
-      <div class="slider-group">
-        <div class="slider-header">
-          <span class="slider-label">Tempo de investimento</span>
-          <span class="slider-value v-purple" id="lbl-years">20 anos</span>
+        <div class="derived">
+          <span class="d-label">Aporte mensal a partir de hoje</span>
+          <span class="d-value" id="lbl-contribution">R$ 700</span>
         </div>
-        <input type="range" id="sl-years" class="purple"
-               min="1" max="40" step="1" value="20" />
-      </div>
+      </section>
 
-      <div class="presets">
-        <button class="preset-btn" data-years="5">5a</button>
-        <button class="preset-btn" data-years="10">10a</button>
-        <button class="preset-btn" data-years="15">15a</button>
-        <button class="preset-btn active" data-years="20">20a</button>
-        <button class="preset-btn" data-years="30">30a</button>
-        <button class="preset-btn" data-years="40">40a</button>
-      </div>
+      <!-- Tempo -->
+      <section class="card anim d3">
+        <div class="card-title"><span class="dot dot-p"></span> Horizonte de Tempo</div>
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Anos guardando</span>
+            <span class="slider-value v-purple" id="lbl-years">20 anos</span>
+          </div>
+          <input type="range" id="sl-years" class="purple" min="1" max="40" step="1" value="20" />
+          <div class="range-meta"><span id="year-start">2026</span><span id="year-end">2046</span></div>
+        </div>
+        <div class="presets">
+          <button class="preset-btn" data-years="5">5a</button>
+          <button class="preset-btn" data-years="10">10a</button>
+          <button class="preset-btn" data-years="15">15a</button>
+          <button class="preset-btn active" data-years="20">20a</button>
+          <button class="preset-btn" data-years="30">30a</button>
+          <button class="preset-btn" data-years="40">40a</button>
+        </div>
+      </section>
+
+      <!-- Investimento -->
+      <section class="card anim d4">
+        <div class="card-title"><span class="dot dot-a"></span> Onde o dinheiro rende</div>
+        <div class="radio-tabs">
+          <div><input type="radio" name="inv" id="inv-poup" value="6.17" checked />
+            <label for="inv-poup">Poupança<small>~6,17% a.a.</small></label></div>
+          <div><input type="radio" name="inv" id="inv-cdb" value="11.75" />
+            <label for="inv-cdb">CDB / Selic<small>~11,75% a.a.</small></label></div>
+          <div><input type="radio" name="inv" id="inv-teso" value="11" />
+            <label for="inv-teso">Tesouro IPCA<small>~11% a.a.</small></label></div>
+          <div><input type="radio" name="inv" id="inv-custom" value="custom" />
+            <label for="inv-custom">Personalizado<small>ajuste a taxa</small></label></div>
+        </div>
+
+        <div class="slider-group" id="custom-rate-group" style="opacity:.35;pointer-events:none;margin-top:1.4rem;">
+          <div class="slider-header">
+            <span class="slider-label">Taxa anual personalizada</span>
+            <span class="slider-value v-amber" id="lbl-rate">10%</span>
+          </div>
+          <input type="range" id="sl-rate" class="amber" min="0.5" max="25" step="0.25" value="10" />
+        </div>
+
+        <hr class="divider" />
+
+        <div class="toggle-row">
+          <span class="toggle-label">Descontar Imposto de Renda (15% sobre o lucro)</span>
+          <label class="toggle"><input type="checkbox" id="chk-ir" /><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Reajustar aporte pela inflação (+4% a.a.)</span>
+          <label class="toggle"><input type="checkbox" id="chk-inflation" /><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Mostrar valores em poder de compra de hoje (real)</span>
+          <label class="toggle"><input type="checkbox" id="chk-real" /><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+      </section>
+
+      <!-- Meta FIRE -->
+      <section class="card anim d5">
+        <div class="card-title"><span class="dot dot-p"></span> Meta de Liberdade Financeira</div>
+        <div class="slider-group">
+          <div class="slider-header">
+            <span class="slider-label">Patrimônio = quantas rendas anuais</span>
+            <span class="slider-value v-purple" id="lbl-multiple">25× <small id="rule-label">(regra dos 4%)</small></span>
+          </div>
+          <input type="range" id="sl-multiple" class="purple" min="10" max="50" step="1" value="25" />
+        </div>
+        <div class="derived" style="border-style:solid;">
+          <span class="d-label">Meta &amp; renda passiva mensal</span>
+          <span class="d-value" style="color:var(--purple);text-shadow:var(--glow-p)" id="lbl-fire-goal">—</span>
+        </div>
+        <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin-top:.9rem">
+          Com esse patrimônio você sacaria <span id="lbl-passive" style="color:var(--aqua)">—</span>/mês
+          vivendo só dos rendimentos.
+        </p>
+      </section>
+
     </div>
 
-    <!-- Investimento -->
-    <div class="card">
-      <div class="card-title">Tipo de Investimento</div>
+    <!-- ── PAINEL DIREITO ── -->
+    <div class="col">
 
-      <div class="radio-tabs">
-        <div><input type="radio" name="inv" id="inv-poup" value="6.17" checked />
-          <label for="inv-poup">Poupança<br><small>~6,17% a.a.</small></label></div>
-        <div><input type="radio" name="inv" id="inv-cdb" value="13" />
-          <label for="inv-cdb">CDB 100%<br><small>~13% a.a.</small></label></div>
-        <div><input type="radio" name="inv" id="inv-teso" value="11.5" />
-          <label for="inv-teso">Tesouro<br><small>~11,5% a.a.</small></label></div>
-        <div><input type="radio" name="inv" id="inv-custom" value="custom" />
-          <label for="inv-custom">Custom<br><small>ajuste</small></label></div>
-      </div>
-
-      <div class="slider-group" id="custom-rate-group" style="opacity:.35;pointer-events:none;">
-        <div class="slider-header">
-          <span class="slider-label">Taxa anual personalizada</span>
-          <span class="slider-value" style="color:#fb923c" id="lbl-rate">10%</span>
+      <!-- KPIs -->
+      <div class="stats-grid anim d2">
+        <div class="stat-tile">
+          <div class="label">Patrimônio final</div>
+          <div class="value v-green" id="kpi-total">—</div>
+          <div class="delta" id="kpi-total-delta"></div>
         </div>
-        <input type="range" id="sl-rate" class="orange"
-               min="1" max="25" step="0.25" value="10" />
-      </div>
-
-      <div class="toggle-row">
-        <span class="toggle-label">Descontar IR (15%) sobre rendimento</span>
-        <label class="toggle">
-          <input type="checkbox" id="chk-ir" checked />
-          <div class="toggle-track"></div>
-          <div class="toggle-thumb"></div>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <span class="toggle-label">Aumentar aporte com inflação (4% a.a.)</span>
-        <label class="toggle">
-          <input type="checkbox" id="chk-inflation" />
-          <div class="toggle-track"></div>
-          <div class="toggle-thumb"></div>
-        </label>
-      </div>
-    </div>
-
-    <!-- Meta FIRE -->
-    <div class="card">
-      <div class="card-title">Meta FIRE (Independência Financeira)</div>
-      <div class="slider-group">
-        <div class="slider-header">
-          <span class="slider-label">Múltiplo da renda anual</span>
-          <span class="slider-value v-purple" id="lbl-multiple">25× <small style="font-size:.7rem;color:var(--muted)">(Regra 4%)</small></span>
+        <div class="stat-tile">
+          <div class="label">Total guardado</div>
+          <div class="value v-aqua" id="kpi-invested">—</div>
+          <div class="delta" id="kpi-invested-pct"></div>
         </div>
-        <input type="range" id="sl-multiple" class="purple"
-               min="10" max="50" step="1" value="25" />
-      </div>
-      <div style="font-size:.8rem;color:var(--muted);line-height:1.5">
-        Meta: <span id="lbl-fire-goal" style="color:var(--purple);font-weight:700">—</span>
-        · Renda passiva: <span id="lbl-passive" style="color:var(--cyan);font-weight:700">—</span>/mês
-      </div>
-    </div>
-
-  </div><!-- end left -->
-
-  <!-- ── RIGHT PANEL ── -->
-  <div class="chart-area">
-
-    <!-- KPI tiles -->
-    <div class="stats-grid">
-      <div class="stat-tile">
-        <div class="label">Patrimônio final</div>
-        <div class="value v-green" id="kpi-total">—</div>
-        <div class="delta" id="kpi-total-delta"></div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Total investido</div>
-        <div class="value v-cyan" id="kpi-invested">—</div>
-        <div class="delta" id="kpi-invested-pct"></div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Rendimento acumulado</div>
-        <div class="value v-purple" id="kpi-interest">—</div>
-        <div class="delta" id="kpi-interest-pct"></div>
-      </div>
-      <div class="stat-tile">
-        <div class="label">Renda passiva (4%)</div>
-        <div class="value" style="color:#fb923c" id="kpi-passive">—</div>
-        <div class="delta" id="kpi-fire-years"></div>
-      </div>
-    </div>
-
-    <!-- FIRE Progress -->
-    <div class="fire-bar">
-      <div class="fire-bar-header">
-        <span class="fire-bar-title">Progresso até a Liberdade Financeira</span>
-        <span class="fire-bar-value" id="fire-pct-label">0%</span>
-      </div>
-      <div class="track"><div class="fill" id="fire-fill" style="width:0%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:.5rem;font-size:.72rem;color:var(--muted)">
-        <span>Hoje</span>
-        <span id="fire-eta">Meta: —</span>
-      </div>
-    </div>
-
-    <!-- Line chart -->
-    <div class="card" style="padding:1.2rem 1rem 1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-        <div class="card-title" style="margin:0">Evolução Patrimonial</div>
-        <div style="display:flex;gap:1rem;font-size:.72rem;color:var(--muted)">
-          <span style="color:var(--green)">▬ Patrimônio</span>
-          <span style="color:var(--cyan)">▬ Investido</span>
-          <span style="color:var(--purple)">▬ Rendimento</span>
+        <div class="stat-tile">
+          <div class="label">Só de juros</div>
+          <div class="value v-purple" id="kpi-interest">—</div>
+          <div class="delta" id="kpi-interest-pct"></div>
+        </div>
+        <div class="stat-tile">
+          <div class="label">Renda passiva</div>
+          <div class="value v-amber" id="kpi-passive">—</div>
+          <div class="delta" id="kpi-fire-years"></div>
         </div>
       </div>
-      <div class="chart-wrap">
-        <canvas id="chart-main"></canvas>
-      </div>
-    </div>
 
-    <!-- Bar chart: monthly contribution breakdown -->
-    <div class="card" style="padding:1.2rem 1rem 1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-        <div class="card-title" style="margin:0">Composição por Ano (Investido × Juros)</div>
+      <!-- Progresso FIRE -->
+      <div class="fire-bar anim d3">
+        <div class="fire-head">
+          <span class="fire-title">Progresso até a liberdade financeira</span>
+          <span class="fire-pct" id="fire-pct-label">0%</span>
+        </div>
+        <div class="track"><div class="fill" id="fire-fill"></div></div>
+        <div class="fire-foot">
+          <span>hoje · <span id="year-now">2026</span></span>
+          <span id="fire-eta">meta: —</span>
+        </div>
       </div>
-      <div class="chart-wrap" style="height:200px;">
-        <canvas id="chart-bar"></canvas>
-      </div>
-    </div>
 
-    <!-- Milestones -->
-    <div class="card">
-      <div class="card-title">Marcos Financeiros</div>
-      <div class="milestones" id="milestones"></div>
-    </div>
+      <!-- Gráfico de linha -->
+      <section class="card anim d4">
+        <div class="card-head">
+          <div class="card-title" style="margin:0"><span class="dot dot-g"></span> Evolução do Patrimônio (ano a ano)</div>
+          <div class="legend">
+            <span><i style="background:var(--green)"></i> Patrimônio</span>
+            <span><i style="background:var(--aqua)"></i> Guardado</span>
+            <span><i style="background:var(--purple)"></i> Juros</span>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-main"></canvas></div>
+      </section>
 
-  </div><!-- end right -->
+      <!-- Comparativo de investimentos -->
+      <section class="card anim d5">
+        <div class="card-head">
+          <div class="card-title" style="margin:0"><span class="dot dot-a"></span> Poupança vs. outras opções</div>
+          <div class="legend">
+            <span><i style="background:var(--muted)"></i> Poupança</span>
+            <span><i style="background:var(--aqua)"></i> CDB/Selic</span>
+            <span><i style="background:var(--green)"></i> Sua escolha</span>
+          </div>
+        </div>
+        <div class="chart-wrap short"><canvas id="chart-compare"></canvas></div>
+      </section>
+
+      <!-- Modo meta -->
+      <section class="card anim d5">
+        <div class="card-title"><span class="dot dot-p"></span> Quanto tempo para alcançar um valor</div>
+        <div class="slider-group" style="margin-bottom:.5rem">
+          <div class="slider-header">
+            <span class="slider-label">Quero juntar</span>
+            <span class="slider-value v-amber" id="lbl-goal">R$ 1.000.000</span>
+          </div>
+          <input type="range" id="sl-goal" class="amber" min="10000" max="5000000" step="10000" value="1000000" />
+        </div>
+        <div class="goal-result" id="goal-result">—</div>
+      </section>
+
+      <!-- Marcos -->
+      <section class="card anim d6">
+        <div class="card-title"><span class="dot dot-g"></span> Marcos no caminho</div>
+        <div class="milestones" id="milestones"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer>
+    Juros compostos calculados mês a mês a partir de <code id="foot-date">hoje</code>.
+    Taxas são estimativas para fins educativos — não constituem recomendação de investimento.
+  </footer>
 </div>
 
 <script>
-// ── Formatters ──────────────────────────────────────────────────────────────
-const fmt = (n) =>
-  n >= 1e6
-    ? 'R$ ' + (n / 1e6).toFixed(2).replace('.', ',') + ' M'
-    : 'R$ ' + Math.round(n).toLocaleString('pt-BR');
-
+// ── Formatadores ──────────────────────────────────────────────────────────
+const fmt = (n) => {
+  if (n >= 1e6) return 'R$ ' + (n / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' mi';
+  return 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+};
+const fmtFull  = (n) => 'R$ ' + Math.round(n).toLocaleString('pt-BR');
 const fmtShort = (n) =>
-  n >= 1e6 ? (n/1e6).toFixed(1).replace('.',',')+'M' :
-  n >= 1e3 ? (n/1e3).toFixed(0)+'k' : Math.round(n).toString();
+  n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M' :
+  n >= 1e3 ? Math.round(n / 1e3) + 'k' : Math.round(n).toString();
 
-// ── State ────────────────────────────────────────────────────────────────────
+const START_YEAR = new Date().getFullYear();
+const INFLATION  = 0.04;
+
+// ── Estado ──────────────────────────────────────────────────────────────────
 const state = {
-  salary:    7000,
-  pct:       10,
-  years:     20,
-  rate:      6.17,
-  multiple:  25,
-  applyIR:   true,
-  inflation: false,
+  salary: 7000, pct: 10, years: 20, rate: 6.17, multiple: 25,
+  applyIR: false, inflation: false, real: false, goal: 1_000_000,
 };
 
-// ── Slider helper ────────────────────────────────────────────────────────────
+// ── Núcleo de cálculo ─────────────────────────────────────────────────────
+// Retorna linhas anuais para uma taxa anual nominal (%) dada.
+function project(annualRatePct, years = state.years) {
+  const baseContribution = state.salary * state.pct / 100;
+  const effRate = state.applyIR ? annualRatePct * 0.85 : annualRatePct;
+  const monthlyRate = Math.pow(1 + effRate / 100, 1 / 12) - 1;
+
+  const rows = [{ year: 0, balance: 0, invested: 0, interest: 0 }];
+  let balance = 0, invested = 0;
+
+  for (let y = 1; y <= years; y++) {
+    const contrib = state.inflation
+      ? baseContribution * Math.pow(1 + INFLATION, y - 1)
+      : baseContribution;
+    for (let m = 0; m < 12; m++) {
+      balance = balance * (1 + monthlyRate) + contrib;
+      invested += contrib;
+    }
+    let bal = balance, inv = invested;
+    if (state.real) {
+      const deflator = Math.pow(1 + INFLATION, y);
+      bal /= deflator; inv /= deflator;
+    }
+    rows.push({ year: y, balance: bal, invested: inv, interest: bal - inv });
+  }
+  return rows;
+}
+
+// Quantos meses para um saldo atingir uma meta (taxa atual). null se nunca.
+function monthsToReach(target) {
+  const baseContribution = state.salary * state.pct / 100;
+  const effRate = state.applyIR ? state.rate * 0.85 : state.rate;
+  const monthlyRate = Math.pow(1 + effRate / 100, 1 / 12) - 1;
+  let balance = 0;
+  for (let m = 1; m <= 12 * 80; m++) {
+    const y = Math.ceil(m / 12);
+    const contrib = state.inflation ? baseContribution * Math.pow(1 + INFLATION, y - 1) : baseContribution;
+    balance = balance * (1 + monthlyRate) + contrib;
+    const compare = state.real ? balance / Math.pow(1 + INFLATION, m / 12) : balance;
+    if (compare >= target) return m;
+  }
+  return null;
+}
+
+// ── Gráficos ─────────────────────────────────────────────────────────────
+const GRID = 'rgba(255,255,255,.05)';
+Chart.defaults.color = '#5b6479';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 10;
+
+let mainChart, compareChart;
+
+function makeMainChart() {
+  const ctx = document.getElementById('chart-main').getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 340);
+  g.addColorStop(0, 'rgba(92,255,177,.28)'); g.addColorStop(1, 'rgba(92,255,177,0)');
+  const ga = ctx.createLinearGradient(0, 0, 0, 340);
+  ga.addColorStop(0, 'rgba(46,230,230,.16)'); ga.addColorStop(1, 'rgba(46,230,230,0)');
+
+  mainChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Patrimônio', data: [], borderColor: '#5cffb1', backgroundColor: g, borderWidth: 2.5, fill: true, tension: .4, pointRadius: 0, pointHoverRadius: 6, pointBackgroundColor: '#5cffb1' },
+      { label: 'Guardado',   data: [], borderColor: '#2ee6e6', backgroundColor: ga, borderWidth: 2, fill: true, tension: .4, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#2ee6e6', borderDash: [5,3] },
+      { label: 'Juros',      data: [], borderColor: '#a06bff', backgroundColor: 'transparent', borderWidth: 2, fill: false, tension: .4, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#a06bff' },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0b0d16', borderColor: '#262a3d', borderWidth: 1, padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace" }, bodyFont: { family: "'JetBrains Mono', monospace" },
+          callbacks: { title: (i) => 'Ano ' + i[0].label, label: (i) => '  ' + i.dataset.label + ': ' + fmtFull(i.raw) },
+        },
+      },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { maxTicksLimit: 12 } },
+        y: { grid: { color: GRID }, ticks: { callback: (v) => 'R$' + fmtShort(v) } },
+      },
+    },
+  });
+}
+
+function makeCompareChart() {
+  const ctx = document.getElementById('chart-compare').getContext('2d');
+  compareChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Poupança',  data: [], borderColor: '#5b6479', borderWidth: 1.5, fill: false, tension: .4, pointRadius: 0, pointHoverRadius: 4, borderDash: [4,4] },
+      { label: 'CDB/Selic', data: [], borderColor: '#2ee6e6', borderWidth: 1.5, fill: false, tension: .4, pointRadius: 0, pointHoverRadius: 4 },
+      { label: 'Sua escolha', data: [], borderColor: '#5cffb1', borderWidth: 2.5, fill: false, tension: .4, pointRadius: 0, pointHoverRadius: 5 },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0b0d16', borderColor: '#262a3d', borderWidth: 1, padding: 10,
+          titleFont: { family: "'JetBrains Mono', monospace" }, bodyFont: { family: "'JetBrains Mono', monospace" },
+          callbacks: { title: (i) => 'Ano ' + i[0].label, label: (i) => '  ' + i.dataset.label + ': ' + fmtFull(i.raw) },
+        },
+      },
+      scales: {
+        x: { grid: { color: GRID }, ticks: { maxTicksLimit: 12 } },
+        y: { grid: { color: GRID }, ticks: { callback: (v) => 'R$' + fmtShort(v) } },
+      },
+    },
+  });
+}
+
+// ── Marcos ──────────────────────────────────────────────────────────────────
+const MILESTONES = [
+  { label: 'Reserva de 6 meses', fn: (s) => s.salary * 6 },
+  { label: '1 ano de renda',     fn: (s) => s.salary * 12 },
+  { label: 'Primeiros R$ 100 mil', fn: () => 100_000 },
+  { label: 'Meio milhão',        fn: () => 500_000 },
+  { label: 'R$ 1 milhão',        fn: () => 1_000_000 },
+  { label: 'Meta FIRE',          fn: (s) => s.salary * 12 * s.multiple },
+];
+
+function renderMilestones(rows) {
+  const colors = ['v-green','v-aqua','v-purple','v-green','v-aqua','v-purple'];
+  document.getElementById('milestones').innerHTML = MILESTONES.map((m, i) => {
+    const target = m.fn(state);
+    const row = rows.find(r => r.balance >= target);
+    const reached = !!row;
+    return `
+      <div class="milestone ${reached ? 'reached' : 'locked'}">
+        <div class="m-label">${m.label}</div>
+        <div class="m-value ${reached ? colors[i] : ''}">${reached ? (START_YEAR + row.year) : '—'}</div>
+        <div class="m-target">${reached ? 'em ' + row.year + ' anos' : 'além de ' + state.years + 'a'} · ${fmtShort(target)}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── FIRE ──────────────────────────────────────────────────────────────────
+function renderFire(rows) {
+  const fireGoal = state.salary * 12 * state.multiple;
+  const finalBalance = rows[rows.length - 1].balance;
+  const passive = fireGoal * 0.04 / 12;
+
+  document.getElementById('lbl-fire-goal').textContent = fmt(fireGoal);
+  document.getElementById('lbl-passive').textContent = fmtFull(passive);
+
+  const pct = Math.min(100, finalBalance / fireGoal * 100);
+  document.getElementById('fire-fill').style.width = pct.toFixed(1) + '%';
+  document.getElementById('fire-pct-label').textContent = pct.toFixed(1) + '%';
+
+  const fireRow = rows.find(r => r.balance >= fireGoal);
+  document.getElementById('fire-eta').innerHTML = fireRow
+    ? 'meta em <b>' + (START_YEAR + fireRow.year) + '</b>'
+    : 'além do período';
+
+  document.getElementById('kpi-passive').textContent = fmt(finalBalance * 0.04 / 12);
+  document.getElementById('kpi-fire-years').textContent = fireRow
+    ? 'liberdade em ' + fireRow.year + ' anos'
+    : 'meta não atingida no período';
+}
+
+// ── Modo meta ───────────────────────────────────────────────────────────────
+function renderGoal() {
+  const target = state.goal;
+  const months = monthsToReach(target);
+  const el = document.getElementById('goal-result');
+  if (!months) {
+    el.innerHTML = `Com o aporte atual, <b>${fmt(target)}</b> não é alcançado em 80 anos. Aumente o quanto guarda ou a taxa de rendimento.`;
+    return;
+  }
+  const y = Math.floor(months / 12), m = months % 12;
+  const when = START_YEAR + Math.ceil(months / 12);
+  const tempo = (y > 0 ? y + (y === 1 ? ' ano' : ' anos') : '') + (m > 0 ? (y > 0 ? ' e ' : '') + m + (m === 1 ? ' mês' : ' meses') : '');
+  el.innerHTML = `Guardando <b>${fmtFull(state.salary * state.pct / 100)}</b>/mês a <b>${state.rate.toLocaleString('pt-BR')}% a.a.</b>,
+    você alcança <b>${fmt(target)}</b> em <b style="color:var(--green)">${tempo}</b> — por volta de <b>${when}</b>.`;
+}
+
+// ── Render principal ────────────────────────────────────────────────────────
+function render() {
+  const rows = project(state.rate);
+  const labels = rows.map(r => r.year);
+  const final = rows[rows.length - 1];
+
+  // Cabeçalho
+  document.getElementById('hs-total').textContent = fmt(final.balance);
+  document.getElementById('hs-sub').textContent =
+    `em ${state.years} anos · ${(final.balance / (final.invested || 1)).toFixed(1)}× o que você guardou`;
+
+  // KPIs
+  document.getElementById('kpi-total').textContent = fmt(final.balance);
+  document.getElementById('kpi-total-delta').textContent = '×' + (final.balance / (final.invested || 1)).toFixed(2) + ' do guardado';
+  document.getElementById('kpi-invested').textContent = fmt(final.invested);
+  document.getElementById('kpi-invested-pct').textContent = (final.invested / final.balance * 100).toFixed(0) + '% do total';
+  document.getElementById('kpi-interest').textContent = fmt(final.interest);
+  document.getElementById('kpi-interest-pct').textContent = (final.interest / final.balance * 100).toFixed(0) + '% veio dos juros';
+
+  // Gráfico principal
+  mainChart.data.labels = labels;
+  mainChart.data.datasets[0].data = rows.map(r => r.balance);
+  mainChart.data.datasets[1].data = rows.map(r => r.invested);
+  mainChart.data.datasets[2].data = rows.map(r => r.interest);
+  mainChart.update('none');
+
+  // Comparativo: poupança 6,17 · CDB 11,75 · escolha atual
+  compareChart.data.labels = labels;
+  compareChart.data.datasets[0].data = project(6.17).map(r => r.balance);
+  compareChart.data.datasets[1].data = project(11.75).map(r => r.balance);
+  compareChart.data.datasets[2].data = rows.map(r => r.balance);
+  compareChart.update('none');
+
+  renderMilestones(rows);
+  renderFire(rows);
+  renderGoal();
+}
+
+// ── Sliders ─────────────────────────────────────────────────────────────────
 function initSlider(id, onChange) {
   const el = document.getElementById(id);
   const update = () => {
     const min = +el.min, max = +el.max, val = +el.value;
-    const pct = ((val - min) / (max - min) * 100).toFixed(1) + '%';
-    el.style.setProperty('--pct', pct);
+    el.style.setProperty('--pct', ((val - min) / (max - min) * 100).toFixed(2) + '%');
     onChange(val);
   };
   el.addEventListener('input', update);
   update();
 }
 
-// ── Chart setup ──────────────────────────────────────────────────────────────
-const GRID   = '#1e1e30';
-const FONT   = '#64748b';
-
-Chart.defaults.color = FONT;
-Chart.defaults.font.family = 'Segoe UI, system-ui, sans-serif';
-Chart.defaults.font.size   = 11;
-
-let mainChart, barChart;
-
-function makeMainChart() {
-  const ctx = document.getElementById('chart-main').getContext('2d');
-
-  const gGreen = ctx.createLinearGradient(0, 0, 0, 320);
-  gGreen.addColorStop(0, '#00ff8830');
-  gGreen.addColorStop(1, '#00ff8800');
-
-  const gCyan = ctx.createLinearGradient(0, 0, 0, 320);
-  gCyan.addColorStop(0, '#00e5ff20');
-  gCyan.addColorStop(1, '#00e5ff00');
-
-  mainChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: 'Patrimônio',
-          data: [],
-          borderColor: '#00ff88',
-          backgroundColor: gGreen,
-          borderWidth: 2.5,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 3,
-          pointBackgroundColor: '#00ff88',
-          pointHoverRadius: 6,
-        },
-        {
-          label: 'Total Investido',
-          data: [],
-          borderColor: '#00e5ff',
-          backgroundColor: gCyan,
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 2,
-          pointBackgroundColor: '#00e5ff',
-          pointHoverRadius: 5,
-          borderDash: [5, 3],
-        },
-        {
-          label: 'Rendimento',
-          data: [],
-          borderColor: '#a855f7',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          fill: false,
-          tension: 0.4,
-          pointRadius: 2,
-          pointBackgroundColor: '#a855f7',
-          pointHoverRadius: 5,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#13131f',
-          borderColor: '#1e1e30',
-          borderWidth: 1,
-          padding: 12,
-          callbacks: {
-            title: (items) => 'Ano ' + items[0].label,
-            label: (item) => ' ' + item.dataset.label + ': ' + fmt(item.raw),
-          },
-        },
-      },
-      scales: {
-        x: {
-          grid: { color: GRID },
-          ticks: { maxTicksLimit: 10 },
-        },
-        y: {
-          grid: { color: GRID },
-          ticks: {
-            callback: (v) => 'R$' + fmtShort(v),
-          },
-        },
-      },
-    },
-  });
+function updateContribution() {
+  document.getElementById('lbl-contribution').textContent = fmtFull(state.salary * state.pct / 100);
+}
+function highlightPreset(years) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', +b.dataset.years === years));
+}
+function updateYearRange() {
+  document.getElementById('year-end').textContent = START_YEAR + state.years;
 }
 
-function makeBarChart() {
-  const ctx = document.getElementById('chart-bar').getContext('2d');
-  barChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: 'Investido',
-          data: [],
-          backgroundColor: '#00e5ff33',
-          borderColor: '#00e5ff',
-          borderWidth: 1.5,
-          borderRadius: 4,
-        },
-        {
-          label: 'Rendimento',
-          data: [],
-          backgroundColor: '#a855f733',
-          borderColor: '#a855f7',
-          borderWidth: 1.5,
-          borderRadius: 4,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#13131f',
-          borderColor: '#1e1e30',
-          borderWidth: 1,
-          padding: 10,
-          callbacks: {
-            title: (items) => 'Ano ' + items[0].label,
-            label: (item) => ' ' + item.dataset.label + ': ' + fmt(item.raw),
-          },
-        },
-      },
-      scales: {
-        x: {
-          stacked: true,
-          grid: { color: GRID },
-          ticks: { maxTicksLimit: 10 },
-        },
-        y: {
-          stacked: true,
-          grid: { color: GRID },
-          ticks: { callback: (v) => 'R$' + fmtShort(v) },
-        },
-      },
-    },
-  });
-}
-
-// ── Core calculation ─────────────────────────────────────────────────────────
-function calcProjection() {
-  const { salary, pct, years, rate, applyIR, inflation } = state;
-
-  let contribution = salary * pct / 100;
-  const effectiveRate = applyIR ? rate * 0.85 : rate;   // simplified IR
-  const monthlyRate = Math.pow(1 + effectiveRate / 100, 1 / 12) - 1;
-
-  const rows = [{ year: 0, balance: 0, invested: 0, interest: 0 }];
-  let balance = 0;
-  let totalInvested = 0;
-
-  for (let y = 1; y <= years; y++) {
-    if (inflation && y > 1) contribution *= 1.04 / 12; // monthly step ≈ yearly 4% / 12
-    const monthlyContrib = inflation ? salary * pct / 100 * Math.pow(1.04, y - 1) : contribution;
-
-    for (let m = 0; m < 12; m++) {
-      balance = balance * (1 + monthlyRate) + monthlyContrib;
-      totalInvested += monthlyContrib;
-    }
-    rows.push({ year: y, balance, invested: totalInvested, interest: balance - totalInvested });
-  }
-  return rows;
-}
-
-// ── Milestones ────────────────────────────────────────────────────────────────
-const MILESTONES = [
-  { label: '1° salário mensal acumulado', fn: (s) => s.salary },
-  { label: '6 meses de reserva',          fn: (s) => s.salary * 6 },
-  { label: '1 ano de renda',              fn: (s) => s.salary * 12 },
-  { label: 'R$ 100 mil',                  fn: ()  => 100_000 },
-  { label: 'R$ 500 mil',                  fn: ()  => 500_000 },
-  { label: 'R$ 1 milhão',                 fn: ()  => 1_000_000 },
-];
-
-function renderMilestones(rows) {
-  const container = document.getElementById('milestones');
-  const colors = ['v-green','v-cyan','v-purple','v-green','v-cyan','v-purple'];
-  container.innerHTML = MILESTONES.map((m, i) => {
-    const target = m.fn(state);
-    const row = rows.find(r => r.balance >= target);
-    const cls = colors[i];
-    return `
-      <div class="milestone">
-        <div class="m-label">${m.label}</div>
-        <div class="m-value ${cls}">${row ? 'Ano ' + row.year : '> ' + state.years + 'a'}</div>
-        <div class="m-year">${fmt(target)}</div>
-      </div>`;
-  }).join('');
-}
-
-// ── FIRE ─────────────────────────────────────────────────────────────────────
-function renderFire(rows) {
-  const annualExpenses = state.salary * 12;
-  const fireGoal       = annualExpenses * state.multiple;
-  const finalBalance   = rows[rows.length - 1].balance;
-  const passiveMonthly = fireGoal * 0.04 / 12;
-
-  document.getElementById('lbl-fire-goal').textContent = fmt(fireGoal);
-  document.getElementById('lbl-passive').textContent   = fmt(passiveMonthly);
-
-  const pct = Math.min(100, (finalBalance / fireGoal) * 100);
-  document.getElementById('fire-fill').style.width   = pct.toFixed(1) + '%';
-  document.getElementById('fire-pct-label').textContent = pct.toFixed(1) + '%';
-
-  const fireRow = rows.find(r => r.balance >= fireGoal);
-  document.getElementById('fire-eta').textContent =
-    fireRow ? 'Meta em ' + fireRow.year + ' anos' : 'Além do período';
-
-  // KPI passive income from final balance
-  document.getElementById('kpi-passive').textContent = fmt(finalBalance * 0.04 / 12) + '/mês';
-  const fireYearsText = fireRow ? 'FIRE em ' + fireRow.year + ' anos' : 'Além do período simulado';
-  document.getElementById('kpi-fire-years').textContent = fireYearsText;
-}
-
-// ── Main render ───────────────────────────────────────────────────────────────
-function render() {
-  const rows = calcProjection();
-  const labels = rows.map(r => r.year);
-  const balances  = rows.map(r => r.balance);
-  const invested  = rows.map(r => r.invested);
-  const interests = rows.map(r => r.interest);
-  const final     = rows[rows.length - 1];
-  const contribution = state.salary * state.pct / 100;
-
-  // KPIs
-  document.getElementById('kpi-total').textContent         = fmt(final.balance);
-  document.getElementById('kpi-total-delta').textContent   = '×' + (final.balance / (final.invested || 1)).toFixed(2) + ' do investido';
-  document.getElementById('kpi-invested').textContent      = fmt(final.invested);
-  document.getElementById('kpi-invested-pct').textContent  =
-    ((final.invested / final.balance) * 100).toFixed(1) + '% do patrimônio';
-  document.getElementById('kpi-interest').textContent      = fmt(final.interest);
-  document.getElementById('kpi-interest-pct').textContent  =
-    ((final.interest / final.balance) * 100).toFixed(1) + '% do patrimônio';
-
-  // Charts
-  mainChart.data.labels = labels;
-  mainChart.data.datasets[0].data = balances;
-  mainChart.data.datasets[1].data = invested;
-  mainChart.data.datasets[2].data = interests;
-  mainChart.update('none');
-
-  barChart.data.labels = labels;
-  barChart.data.datasets[0].data = invested;
-  barChart.data.datasets[1].data = interests;
-  barChart.update('none');
-
-  renderMilestones(rows);
-  renderFire(rows);
-}
-
-// ── Wire up controls ─────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
+  // Datas
+  document.getElementById('year-start').textContent = START_YEAR;
+  document.getElementById('year-now').textContent = START_YEAR;
+  document.getElementById('foot-date').textContent =
+    new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
   makeMainChart();
-  makeBarChart();
+  makeCompareChart();
 
   initSlider('sl-salary', (v) => {
     state.salary = v;
-    document.getElementById('lbl-salary').textContent = 'R$ ' + v.toLocaleString('pt-BR');
-    updateContribution();
-    render();
+    document.getElementById('lbl-salary').textContent = fmtFull(v);
+    updateContribution(); render();
   });
-
   initSlider('sl-pct', (v) => {
     state.pct = v;
     document.getElementById('lbl-pct').textContent = v + '%';
-    updateContribution();
-    render();
+    updateContribution(); render();
   });
-
   initSlider('sl-years', (v) => {
     state.years = v;
     document.getElementById('lbl-years').textContent = v + (v === 1 ? ' ano' : ' anos');
-    highlightPreset(v);
-    render();
+    highlightPreset(v); updateYearRange(); render();
   });
-
   initSlider('sl-rate', (v) => {
     state.rate = v;
-    document.getElementById('lbl-rate').textContent = v + '%';
+    document.getElementById('lbl-rate').textContent = v.toLocaleString('pt-BR') + '%';
     render();
   });
-
   initSlider('sl-multiple', (v) => {
     state.multiple = v;
-    document.getElementById('lbl-multiple').innerHTML =
-      v + '× <small style="font-size:.7rem;color:var(--muted)">' +
-      (v === 25 ? '(Regra 4%)' : v === 33 ? '(Regra 3%)' : '') + '</small>';
+    const rule = v === 25 ? '(regra dos 4%)' : v === 33 ? '(regra dos 3%)' : '';
+    document.getElementById('lbl-multiple').innerHTML = v + '× <small id="rule-label">' + rule + '</small>';
     render();
   });
+  initSlider('sl-goal', (v) => {
+    state.goal = v;
+    document.getElementById('lbl-goal').textContent = fmt(v);
+    renderGoal();
+  });
 
-  // Investment type radios
   document.querySelectorAll('input[name=inv]').forEach(radio => {
     radio.addEventListener('change', () => {
       const custom = document.getElementById('custom-rate-group');
       if (radio.value === 'custom') {
-        custom.style.opacity = '1';
-        custom.style.pointerEvents = 'auto';
+        custom.style.opacity = '1'; custom.style.pointerEvents = 'auto';
         state.rate = +document.getElementById('sl-rate').value;
       } else {
-        custom.style.opacity = '.35';
-        custom.style.pointerEvents = 'none';
+        custom.style.opacity = '.35'; custom.style.pointerEvents = 'none';
         state.rate = +radio.value;
       }
       render();
     });
   });
 
-  // Toggles
-  document.getElementById('chk-ir').addEventListener('change', (e) => {
-    state.applyIR = e.target.checked;
-    render();
-  });
-  document.getElementById('chk-inflation').addEventListener('change', (e) => {
-    state.inflation = e.target.checked;
-    render();
-  });
+  const bind = (id, key) => document.getElementById(id).addEventListener('change', (e) => { state[key] = e.target.checked; render(); });
+  bind('chk-ir', 'applyIR');
+  bind('chk-inflation', 'inflation');
+  bind('chk-real', 'real');
 
-  // Preset buttons
   document.querySelectorAll('.preset-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const y = +btn.dataset.years;
-      document.getElementById('sl-years').value = y;
-      document.getElementById('sl-years').dispatchEvent(new Event('input'));
+      const sl = document.getElementById('sl-years');
+      sl.value = btn.dataset.years;
+      sl.dispatchEvent(new Event('input'));
     });
   });
 
   render();
 });
-
-function updateContribution() {
-  const c = state.salary * state.pct / 100;
-  document.getElementById('lbl-contribution').textContent =
-    'R$ ' + c.toLocaleString('pt-BR', { minimumFractionDigits: 0 });
-}
-
-function highlightPreset(years) {
-  document.querySelectorAll('.preset-btn').forEach(b => {
-    b.classList.toggle('active', +b.dataset.years === years);
-  });
-}
 </script>
 </body>
 </html>
