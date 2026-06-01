@@ -517,6 +517,15 @@
           <input type="range" id="sl-rate" class="amber" min="0.5" max="25" step="0.25" value="10" />
         </div>
 
+        <div class="slider-group" style="margin-top:1.4rem">
+          <div class="slider-header">
+            <span class="slider-label">Inflação estimada ao ano</span>
+            <span class="slider-value v-amber" id="lbl-infl">4%</span>
+          </div>
+          <input type="range" id="sl-infl" class="amber" min="0" max="12" step="0.25" value="4" />
+          <div class="range-meta"><span>0%</span><span>12%</span></div>
+        </div>
+
         <hr class="divider" />
 
         <div class="toggle-row">
@@ -524,7 +533,7 @@
           <label class="toggle"><input type="checkbox" id="chk-ir" /><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
         </div>
         <div class="toggle-row">
-          <span class="toggle-label">Reajustar aporte pela inflação (+4% a.a.)</span>
+          <span class="toggle-label">Reajustar aporte pela inflação (acompanha a taxa acima)</span>
           <label class="toggle"><input type="checkbox" id="chk-inflation" /><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
         </div>
         <div class="toggle-row">
@@ -595,6 +604,37 @@
         </div>
       </div>
 
+      <!-- Poder de compra -->
+      <section class="card anim d3">
+        <div class="card-head">
+          <div class="card-title" style="margin:0"><span class="dot dot-a"></span> Poder de compra daqui a <span id="pp-years">20</span> anos</div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted)">inflação <span id="pp-infl">4%</span> a.a.</span>
+        </div>
+        <div class="stats-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="stat-tile">
+            <div class="label">Patrimônio · valor de face</div>
+            <div class="value v-aqua" id="pp-nominal">—</div>
+            <div class="delta">o número que aparece na conta</div>
+          </div>
+          <div class="stat-tile">
+            <div class="label">Patrimônio · em reais de hoje</div>
+            <div class="value v-green" id="pp-today">—</div>
+            <div class="delta" id="pp-loss">—</div>
+          </div>
+          <div class="stat-tile">
+            <div class="label">Renda passiva · de face</div>
+            <div class="value v-aqua" id="pp-passive-nom">—</div>
+            <div class="delta">4% a.a. sobre o patrimônio</div>
+          </div>
+          <div class="stat-tile">
+            <div class="label">Renda passiva · em reais de hoje</div>
+            <div class="value v-green" id="pp-passive-today">—</div>
+            <div class="delta" id="pp-passive-note">—</div>
+          </div>
+        </div>
+        <div class="goal-result" id="pp-note">—</div>
+      </section>
+
       <!-- Gráfico de linha -->
       <section class="card anim d4">
         <div class="card-head">
@@ -661,13 +701,15 @@ const fmtShort = (n) =>
   n >= 1e3 ? Math.round(n / 1e3) + 'k' : Math.round(n).toString();
 
 const START_YEAR = new Date().getFullYear();
-const INFLATION  = 0.04;
 
 // ── Estado ──────────────────────────────────────────────────────────────────
 const state = {
   salary: 7000, pct: 10, years: 20, rate: 6.17, multiple: 25,
   applyIR: false, inflation: false, real: false, goal: 1_000_000,
+  inflationRate: 4,
 };
+
+const inflRate = () => state.inflationRate / 100;
 
 // ── Núcleo de cálculo ─────────────────────────────────────────────────────
 // Retorna linhas anuais para uma taxa anual nominal (%) dada.
@@ -681,20 +723,23 @@ function project(annualRatePct, years = state.years) {
 
   for (let y = 1; y <= years; y++) {
     const contrib = state.inflation
-      ? baseContribution * Math.pow(1 + INFLATION, y - 1)
+      ? baseContribution * Math.pow(1 + inflRate(), y - 1)
       : baseContribution;
     for (let m = 0; m < 12; m++) {
       balance = balance * (1 + monthlyRate) + contrib;
       invested += contrib;
     }
-    let bal = balance, inv = invested;
-    if (state.real) {
-      const deflator = Math.pow(1 + INFLATION, y);
-      bal /= deflator; inv /= deflator;
-    }
-    rows.push({ year: y, balance: bal, invested: inv, interest: bal - inv });
+    rows.push({ year: y, balance, invested, interest: balance - invested });
   }
   return rows;
+}
+
+// Converte valores nominais (futuros) para o poder de compra de hoje.
+function deflate(rows) {
+  return rows.map(r => {
+    const d = Math.pow(1 + inflRate(), r.year);
+    return { year: r.year, balance: r.balance / d, invested: r.invested / d, interest: r.interest / d };
+  });
 }
 
 // Quantos meses para um saldo atingir uma meta (taxa atual). null se nunca.
@@ -705,9 +750,9 @@ function monthsToReach(target) {
   let balance = 0;
   for (let m = 1; m <= 12 * 80; m++) {
     const y = Math.ceil(m / 12);
-    const contrib = state.inflation ? baseContribution * Math.pow(1 + INFLATION, y - 1) : baseContribution;
+    const contrib = state.inflation ? baseContribution * Math.pow(1 + inflRate(), y - 1) : baseContribution;
     balance = balance * (1 + monthlyRate) + contrib;
-    const compare = state.real ? balance / Math.pow(1 + INFLATION, m / 12) : balance;
+    const compare = state.real ? balance / Math.pow(1 + inflRate(), m / 12) : balance;
     if (compare >= target) return m;
   }
   return null;
@@ -849,7 +894,8 @@ function renderGoal() {
 
 // ── Render principal ────────────────────────────────────────────────────────
 function render() {
-  const rows = project(state.rate);
+  const nominalRows = project(state.rate);
+  const rows = state.real ? deflate(nominalRows) : nominalRows;
   const labels = rows.map(r => r.year);
   const final = rows[rows.length - 1];
 
@@ -873,16 +919,44 @@ function render() {
   mainChart.data.datasets[2].data = rows.map(r => r.interest);
   mainChart.update('none');
 
-  // Comparativo: poupança 6,17 · CDB 11,75 · escolha atual
+  // Comparativo: poupança 6,17 · CDB 11,75 · escolha atual (mesmas bases nominal/real do gráfico acima)
+  const adj = (r) => state.real ? deflate(r) : r;
   compareChart.data.labels = labels;
-  compareChart.data.datasets[0].data = project(6.17).map(r => r.balance);
-  compareChart.data.datasets[1].data = project(11.75).map(r => r.balance);
+  compareChart.data.datasets[0].data = adj(project(6.17)).map(r => r.balance);
+  compareChart.data.datasets[1].data = adj(project(11.75)).map(r => r.balance);
   compareChart.data.datasets[2].data = rows.map(r => r.balance);
   compareChart.update('none');
 
   renderMilestones(rows);
   renderFire(rows);
+  renderPower(nominalRows);
   renderGoal();
+}
+
+// ── Poder de compra ──────────────────────────────────────────────────────────
+function renderPower(nominalRows) {
+  const years    = state.years;
+  const deflator = Math.pow(1 + inflRate(), years);
+  const nominal  = nominalRows[nominalRows.length - 1].balance;
+  const today    = nominal / deflator;
+  const passiveNom   = nominal * 0.04 / 12;
+  const passiveToday = passiveNom / deflator;
+
+  document.getElementById('pp-years').textContent = years;
+  document.getElementById('pp-infl').textContent  = state.inflationRate.toLocaleString('pt-BR') + '%';
+  document.getElementById('pp-nominal').textContent = fmt(nominal);
+  document.getElementById('pp-today').textContent   = fmt(today);
+  document.getElementById('pp-loss').textContent    = '−' + ((1 - today / nominal) * 100).toFixed(0) + '% de poder de compra';
+  document.getElementById('pp-passive-nom').textContent   = fmtFull(passiveNom) + '/mês';
+  document.getElementById('pp-passive-today').textContent = fmtFull(passiveToday) + '/mês';
+  document.getElementById('pp-passive-note').textContent  =
+    (passiveToday / state.salary * 100).toFixed(0) + '% do seu salário de hoje';
+
+  document.getElementById('pp-note').innerHTML =
+    `Com inflação de <b>${state.inflationRate.toLocaleString('pt-BR')}%</b> ao ano, em <b>${years} anos</b> os preços ficam ` +
+    `<b>${deflator.toFixed(2)}×</b> maiores — o que hoje custa <b>R$ 1.000</b> custará <b>${fmtFull(1000 * deflator)}</b>. ` +
+    `Por isso seu patrimônio de <b>${fmt(nominal)}</b> terá, na prática, o poder de compra de ` +
+    `<b style="color:var(--green)">${fmt(today)}</b> de hoje.`;
 }
 
 // ── Sliders ─────────────────────────────────────────────────────────────────
@@ -941,6 +1015,11 @@ window.addEventListener('DOMContentLoaded', () => {
     state.multiple = v;
     const rule = v === 25 ? '(regra dos 4%)' : v === 33 ? '(regra dos 3%)' : '';
     document.getElementById('lbl-multiple').innerHTML = v + '× <small id="rule-label">' + rule + '</small>';
+    render();
+  });
+  initSlider('sl-infl', (v) => {
+    state.inflationRate = v;
+    document.getElementById('lbl-infl').textContent = v.toLocaleString('pt-BR') + '%';
     render();
   });
   initSlider('sl-goal', (v) => {
