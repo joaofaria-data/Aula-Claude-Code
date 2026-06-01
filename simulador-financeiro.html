@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador Financeiro</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:        #080810;
+      --surface:   #0f0f1a;
+      --card:      #13131f;
+      --border:    #1e1e30;
+      --green:     #00ff88;
+      --cyan:      #00e5ff;
+      --purple:    #a855f7;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --glow-g:    0 0 18px #00ff8866;
+      --glow-c:    0 0 18px #00e5ff66;
+      --glow-p:    0 0 18px #a855f766;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 10% 5%, #00ff8808 0%, transparent 60%),
+        radial-gradient(ellipse 50% 35% at 90% 90%, #a855f708 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 50% 50%, #00e5ff04 0%, transparent 70%);
+    }
+
+    h1 {
+      text-align: center;
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+    h1 span.g { color: var(--green); text-shadow: var(--glow-g); }
+    h1 span.c { color: var(--cyan);  text-shadow: var(--glow-c); }
+    h1 span.p { color: var(--purple);text-shadow: var(--glow-p); }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .layout {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+
+    .card-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 1.2rem;
+    }
+
+    /* ── Sliders ── */
+    .slider-group { margin-bottom: 1.5rem; }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.5rem;
+    }
+    .slider-label { font-size: 0.88rem; color: var(--text); }
+    .slider-value {
+      font-size: 1rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .v-green  { color: var(--green);  text-shadow: var(--glow-g); }
+    .v-cyan   { color: var(--cyan);   text-shadow: var(--glow-c); }
+    .v-purple { color: var(--purple); text-shadow: var(--glow-p); }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range].green  { background: linear-gradient(to right, var(--green) var(--pct,0%), var(--border) var(--pct,0%)); }
+    input[type=range].cyan   { background: linear-gradient(to right, var(--cyan)  var(--pct,0%), var(--border) var(--pct,0%)); }
+    input[type=range].purple { background: linear-gradient(to right, var(--purple)var(--pct,0%), var(--border) var(--pct,0%)); }
+    input[type=range].orange { background: linear-gradient(to right, #fb923c      var(--pct,0%), var(--border) var(--pct,0%)); }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+      cursor: pointer;
+      transition: transform .15s;
+    }
+    input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.3); }
+    input[type=range].green::-webkit-slider-thumb  { background: var(--green);  box-shadow: var(--glow-g); }
+    input[type=range].cyan::-webkit-slider-thumb   { background: var(--cyan);   box-shadow: var(--glow-c); }
+    input[type=range].purple::-webkit-slider-thumb { background: var(--purple); box-shadow: var(--glow-p); }
+    input[type=range].orange::-webkit-slider-thumb { background: #fb923c; box-shadow: 0 0 10px #fb923c88; }
+
+    /* ── Preset pills ── */
+    .presets {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .preset-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .preset-btn:hover,
+    .preset-btn.active {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      background: #00e5ff0f;
+      box-shadow: var(--glow-c);
+    }
+
+    /* ── Radio tabs (investment type) ── */
+    .radio-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+      flex-wrap: wrap;
+    }
+    .radio-tabs label {
+      flex: 1;
+      min-width: 80px;
+      text-align: center;
+      padding: 0.45rem 0.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all .2s;
+      color: var(--muted);
+      background: var(--surface);
+    }
+    .radio-tabs input { display: none; }
+    .radio-tabs input:checked + label {
+      border-color: var(--purple);
+      color: var(--purple);
+      background: #a855f70f;
+      box-shadow: var(--glow-p);
+    }
+
+    /* ── Stat tiles ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-tile {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    .stat-tile .label { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.3rem; }
+    .stat-tile .value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .stat-tile .delta { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── Chart area ── */
+    .chart-area {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 320px;
+    }
+
+    /* ── FIRE indicator ── */
+    .fire-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+    .fire-bar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .fire-bar-title { font-size: 0.8rem; color: var(--muted); }
+    .fire-bar-value { font-size: 0.9rem; font-weight: 700; color: var(--purple); text-shadow: var(--glow-p); }
+    .track {
+      height: 8px;
+      background: var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .fill {
+      height: 100%;
+      border-radius: 8px;
+      background: linear-gradient(90deg, var(--purple), var(--cyan));
+      box-shadow: 0 0 12px #a855f755;
+      transition: width .5s ease;
+    }
+
+    /* ── Milestone dots ── */
+    .milestones {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.75rem;
+    }
+    .milestone {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+    .milestone .m-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .milestone .m-value { font-size: 0.95rem; font-weight: 700; }
+    .milestone .m-year  { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── Toggle switch ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.2rem;
+    }
+    .toggle-row .toggle-label { font-size: 0.83rem; color: var(--muted); flex: 1; }
+    .toggle {
+      position: relative;
+      width: 38px; height: 20px;
+      cursor: pointer;
+    }
+    .toggle input { display: none; }
+    .toggle-track {
+      width: 100%;
+      height: 100%;
+      border-radius: 20px;
+      background: var(--border);
+      transition: background .2s;
+      border: 1px solid var(--border);
+    }
+    .toggle input:checked ~ .toggle-track {
+      background: var(--green);
+      box-shadow: var(--glow-g);
+    }
+    .toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--text);
+      transition: left .2s;
+    }
+    .toggle input:checked ~ .toggle-thumb { left: 21px; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.2rem 0;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<h1><span class="g">Simula</span><span class="c">dor</span> <span class="p">Financeiro</span></h1>
+<p class="subtitle">Projete seu patrimônio com juros compostos · Poupança · CDB · Tesouro</p>
+
+<div class="layout">
+
+  <!-- ── LEFT PANEL ── -->
+  <div style="display:flex;flex-direction:column;gap:1rem;">
+
+    <!-- Salário -->
+    <div class="card">
+      <div class="card-title">Renda &amp; Aporte</div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-label">Salário mensal</span>
+          <span class="slider-value v-green" id="lbl-salary">R$ 7.000</span>
+        </div>
+        <input type="range" id="sl-salary" class="green"
+               min="1000" max="50000" step="500" value="7000" />
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-label">% guardado por mês</span>
+          <span class="slider-value v-cyan" id="lbl-pct">10%</span>
+        </div>
+        <input type="range" id="sl-pct" class="cyan"
+               min="1" max="70" step="1" value="10" />
+      </div>
+
+      <div class="slider-header" style="margin-bottom:.4rem;">
+        <span class="slider-label" style="font-size:.8rem;color:var(--muted)">Aporte mensal</span>
+        <span style="font-size:.9rem;font-weight:700;color:var(--text)" id="lbl-contribution">R$ 700</span>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="card-title">Período</div>
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-label">Tempo de investimento</span>
+          <span class="slider-value v-purple" id="lbl-years">20 anos</span>
+        </div>
+        <input type="range" id="sl-years" class="purple"
+               min="1" max="40" step="1" value="20" />
+      </div>
+
+      <div class="presets">
+        <button class="preset-btn" data-years="5">5a</button>
+        <button class="preset-btn" data-years="10">10a</button>
+        <button class="preset-btn" data-years="15">15a</button>
+        <button class="preset-btn active" data-years="20">20a</button>
+        <button class="preset-btn" data-years="30">30a</button>
+        <button class="preset-btn" data-years="40">40a</button>
+      </div>
+    </div>
+
+    <!-- Investimento -->
+    <div class="card">
+      <div class="card-title">Tipo de Investimento</div>
+
+      <div class="radio-tabs">
+        <div><input type="radio" name="inv" id="inv-poup" value="6.17" checked />
+          <label for="inv-poup">Poupança<br><small>~6,17% a.a.</small></label></div>
+        <div><input type="radio" name="inv" id="inv-cdb" value="13" />
+          <label for="inv-cdb">CDB 100%<br><small>~13% a.a.</small></label></div>
+        <div><input type="radio" name="inv" id="inv-teso" value="11.5" />
+          <label for="inv-teso">Tesouro<br><small>~11,5% a.a.</small></label></div>
+        <div><input type="radio" name="inv" id="inv-custom" value="custom" />
+          <label for="inv-custom">Custom<br><small>ajuste</small></label></div>
+      </div>
+
+      <div class="slider-group" id="custom-rate-group" style="opacity:.35;pointer-events:none;">
+        <div class="slider-header">
+          <span class="slider-label">Taxa anual personalizada</span>
+          <span class="slider-value" style="color:#fb923c" id="lbl-rate">10%</span>
+        </div>
+        <input type="range" id="sl-rate" class="orange"
+               min="1" max="25" step="0.25" value="10" />
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-label">Descontar IR (15%) sobre rendimento</span>
+        <label class="toggle">
+          <input type="checkbox" id="chk-ir" checked />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-label">Aumentar aporte com inflação (4% a.a.)</span>
+        <label class="toggle">
+          <input type="checkbox" id="chk-inflation" />
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Meta FIRE -->
+    <div class="card">
+      <div class="card-title">Meta FIRE (Independência Financeira)</div>
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-label">Múltiplo da renda anual</span>
+          <span class="slider-value v-purple" id="lbl-multiple">25× <small style="font-size:.7rem;color:var(--muted)">(Regra 4%)</small></span>
+        </div>
+        <input type="range" id="sl-multiple" class="purple"
+               min="10" max="50" step="1" value="25" />
+      </div>
+      <div style="font-size:.8rem;color:var(--muted);line-height:1.5">
+        Meta: <span id="lbl-fire-goal" style="color:var(--purple);font-weight:700">—</span>
+        · Renda passiva: <span id="lbl-passive" style="color:var(--cyan);font-weight:700">—</span>/mês
+      </div>
+    </div>
+
+  </div><!-- end left -->
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="chart-area">
+
+    <!-- KPI tiles -->
+    <div class="stats-grid">
+      <div class="stat-tile">
+        <div class="label">Patrimônio final</div>
+        <div class="value v-green" id="kpi-total">—</div>
+        <div class="delta" id="kpi-total-delta"></div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Total investido</div>
+        <div class="value v-cyan" id="kpi-invested">—</div>
+        <div class="delta" id="kpi-invested-pct"></div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Rendimento acumulado</div>
+        <div class="value v-purple" id="kpi-interest">—</div>
+        <div class="delta" id="kpi-interest-pct"></div>
+      </div>
+      <div class="stat-tile">
+        <div class="label">Renda passiva (4%)</div>
+        <div class="value" style="color:#fb923c" id="kpi-passive">—</div>
+        <div class="delta" id="kpi-fire-years"></div>
+      </div>
+    </div>
+
+    <!-- FIRE Progress -->
+    <div class="fire-bar">
+      <div class="fire-bar-header">
+        <span class="fire-bar-title">Progresso até a Liberdade Financeira</span>
+        <span class="fire-bar-value" id="fire-pct-label">0%</span>
+      </div>
+      <div class="track"><div class="fill" id="fire-fill" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:.5rem;font-size:.72rem;color:var(--muted)">
+        <span>Hoje</span>
+        <span id="fire-eta">Meta: —</span>
+      </div>
+    </div>
+
+    <!-- Line chart -->
+    <div class="card" style="padding:1.2rem 1rem 1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div class="card-title" style="margin:0">Evolução Patrimonial</div>
+        <div style="display:flex;gap:1rem;font-size:.72rem;color:var(--muted)">
+          <span style="color:var(--green)">▬ Patrimônio</span>
+          <span style="color:var(--cyan)">▬ Investido</span>
+          <span style="color:var(--purple)">▬ Rendimento</span>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart-main"></canvas>
+      </div>
+    </div>
+
+    <!-- Bar chart: monthly contribution breakdown -->
+    <div class="card" style="padding:1.2rem 1rem 1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div class="card-title" style="margin:0">Composição por Ano (Investido × Juros)</div>
+      </div>
+      <div class="chart-wrap" style="height:200px;">
+        <canvas id="chart-bar"></canvas>
+      </div>
+    </div>
+
+    <!-- Milestones -->
+    <div class="card">
+      <div class="card-title">Marcos Financeiros</div>
+      <div class="milestones" id="milestones"></div>
+    </div>
+
+  </div><!-- end right -->
+</div>
+
+<script>
+// ── Formatters ──────────────────────────────────────────────────────────────
+const fmt = (n) =>
+  n >= 1e6
+    ? 'R$ ' + (n / 1e6).toFixed(2).replace('.', ',') + ' M'
+    : 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+
+const fmtShort = (n) =>
+  n >= 1e6 ? (n/1e6).toFixed(1).replace('.',',')+'M' :
+  n >= 1e3 ? (n/1e3).toFixed(0)+'k' : Math.round(n).toString();
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  salary:    7000,
+  pct:       10,
+  years:     20,
+  rate:      6.17,
+  multiple:  25,
+  applyIR:   true,
+  inflation: false,
+};
+
+// ── Slider helper ────────────────────────────────────────────────────────────
+function initSlider(id, onChange) {
+  const el = document.getElementById(id);
+  const update = () => {
+    const min = +el.min, max = +el.max, val = +el.value;
+    const pct = ((val - min) / (max - min) * 100).toFixed(1) + '%';
+    el.style.setProperty('--pct', pct);
+    onChange(val);
+  };
+  el.addEventListener('input', update);
+  update();
+}
+
+// ── Chart setup ──────────────────────────────────────────────────────────────
+const GRID   = '#1e1e30';
+const FONT   = '#64748b';
+
+Chart.defaults.color = FONT;
+Chart.defaults.font.family = 'Segoe UI, system-ui, sans-serif';
+Chart.defaults.font.size   = 11;
+
+let mainChart, barChart;
+
+function makeMainChart() {
+  const ctx = document.getElementById('chart-main').getContext('2d');
+
+  const gGreen = ctx.createLinearGradient(0, 0, 0, 320);
+  gGreen.addColorStop(0, '#00ff8830');
+  gGreen.addColorStop(1, '#00ff8800');
+
+  const gCyan = ctx.createLinearGradient(0, 0, 0, 320);
+  gCyan.addColorStop(0, '#00e5ff20');
+  gCyan.addColorStop(1, '#00e5ff00');
+
+  mainChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Patrimônio',
+          data: [],
+          borderColor: '#00ff88',
+          backgroundColor: gGreen,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#00ff88',
+          pointHoverRadius: 6,
+        },
+        {
+          label: 'Total Investido',
+          data: [],
+          borderColor: '#00e5ff',
+          backgroundColor: gCyan,
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 2,
+          pointBackgroundColor: '#00e5ff',
+          pointHoverRadius: 5,
+          borderDash: [5, 3],
+        },
+        {
+          label: 'Rendimento',
+          data: [],
+          borderColor: '#a855f7',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.4,
+          pointRadius: 2,
+          pointBackgroundColor: '#a855f7',
+          pointHoverRadius: 5,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#13131f',
+          borderColor: '#1e1e30',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            title: (items) => 'Ano ' + items[0].label,
+            label: (item) => ' ' + item.dataset.label + ': ' + fmt(item.raw),
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: GRID },
+          ticks: { maxTicksLimit: 10 },
+        },
+        y: {
+          grid: { color: GRID },
+          ticks: {
+            callback: (v) => 'R$' + fmtShort(v),
+          },
+        },
+      },
+    },
+  });
+}
+
+function makeBarChart() {
+  const ctx = document.getElementById('chart-bar').getContext('2d');
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Investido',
+          data: [],
+          backgroundColor: '#00e5ff33',
+          borderColor: '#00e5ff',
+          borderWidth: 1.5,
+          borderRadius: 4,
+        },
+        {
+          label: 'Rendimento',
+          data: [],
+          backgroundColor: '#a855f733',
+          borderColor: '#a855f7',
+          borderWidth: 1.5,
+          borderRadius: 4,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#13131f',
+          borderColor: '#1e1e30',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            title: (items) => 'Ano ' + items[0].label,
+            label: (item) => ' ' + item.dataset.label + ': ' + fmt(item.raw),
+          },
+        },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid: { color: GRID },
+          ticks: { maxTicksLimit: 10 },
+        },
+        y: {
+          stacked: true,
+          grid: { color: GRID },
+          ticks: { callback: (v) => 'R$' + fmtShort(v) },
+        },
+      },
+    },
+  });
+}
+
+// ── Core calculation ─────────────────────────────────────────────────────────
+function calcProjection() {
+  const { salary, pct, years, rate, applyIR, inflation } = state;
+
+  let contribution = salary * pct / 100;
+  const effectiveRate = applyIR ? rate * 0.85 : rate;   // simplified IR
+  const monthlyRate = Math.pow(1 + effectiveRate / 100, 1 / 12) - 1;
+
+  const rows = [{ year: 0, balance: 0, invested: 0, interest: 0 }];
+  let balance = 0;
+  let totalInvested = 0;
+
+  for (let y = 1; y <= years; y++) {
+    if (inflation && y > 1) contribution *= 1.04 / 12; // monthly step ≈ yearly 4% / 12
+    const monthlyContrib = inflation ? salary * pct / 100 * Math.pow(1.04, y - 1) : contribution;
+
+    for (let m = 0; m < 12; m++) {
+      balance = balance * (1 + monthlyRate) + monthlyContrib;
+      totalInvested += monthlyContrib;
+    }
+    rows.push({ year: y, balance, invested: totalInvested, interest: balance - totalInvested });
+  }
+  return rows;
+}
+
+// ── Milestones ────────────────────────────────────────────────────────────────
+const MILESTONES = [
+  { label: '1° salário mensal acumulado', fn: (s) => s.salary },
+  { label: '6 meses de reserva',          fn: (s) => s.salary * 6 },
+  { label: '1 ano de renda',              fn: (s) => s.salary * 12 },
+  { label: 'R$ 100 mil',                  fn: ()  => 100_000 },
+  { label: 'R$ 500 mil',                  fn: ()  => 500_000 },
+  { label: 'R$ 1 milhão',                 fn: ()  => 1_000_000 },
+];
+
+function renderMilestones(rows) {
+  const container = document.getElementById('milestones');
+  const colors = ['v-green','v-cyan','v-purple','v-green','v-cyan','v-purple'];
+  container.innerHTML = MILESTONES.map((m, i) => {
+    const target = m.fn(state);
+    const row = rows.find(r => r.balance >= target);
+    const cls = colors[i];
+    return `
+      <div class="milestone">
+        <div class="m-label">${m.label}</div>
+        <div class="m-value ${cls}">${row ? 'Ano ' + row.year : '> ' + state.years + 'a'}</div>
+        <div class="m-year">${fmt(target)}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── FIRE ─────────────────────────────────────────────────────────────────────
+function renderFire(rows) {
+  const annualExpenses = state.salary * 12;
+  const fireGoal       = annualExpenses * state.multiple;
+  const finalBalance   = rows[rows.length - 1].balance;
+  const passiveMonthly = fireGoal * 0.04 / 12;
+
+  document.getElementById('lbl-fire-goal').textContent = fmt(fireGoal);
+  document.getElementById('lbl-passive').textContent   = fmt(passiveMonthly);
+
+  const pct = Math.min(100, (finalBalance / fireGoal) * 100);
+  document.getElementById('fire-fill').style.width   = pct.toFixed(1) + '%';
+  document.getElementById('fire-pct-label').textContent = pct.toFixed(1) + '%';
+
+  const fireRow = rows.find(r => r.balance >= fireGoal);
+  document.getElementById('fire-eta').textContent =
+    fireRow ? 'Meta em ' + fireRow.year + ' anos' : 'Além do período';
+
+  // KPI passive income from final balance
+  document.getElementById('kpi-passive').textContent = fmt(finalBalance * 0.04 / 12) + '/mês';
+  const fireYearsText = fireRow ? 'FIRE em ' + fireRow.year + ' anos' : 'Além do período simulado';
+  document.getElementById('kpi-fire-years').textContent = fireYearsText;
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function render() {
+  const rows = calcProjection();
+  const labels = rows.map(r => r.year);
+  const balances  = rows.map(r => r.balance);
+  const invested  = rows.map(r => r.invested);
+  const interests = rows.map(r => r.interest);
+  const final     = rows[rows.length - 1];
+  const contribution = state.salary * state.pct / 100;
+
+  // KPIs
+  document.getElementById('kpi-total').textContent         = fmt(final.balance);
+  document.getElementById('kpi-total-delta').textContent   = '×' + (final.balance / (final.invested || 1)).toFixed(2) + ' do investido';
+  document.getElementById('kpi-invested').textContent      = fmt(final.invested);
+  document.getElementById('kpi-invested-pct').textContent  =
+    ((final.invested / final.balance) * 100).toFixed(1) + '% do patrimônio';
+  document.getElementById('kpi-interest').textContent      = fmt(final.interest);
+  document.getElementById('kpi-interest-pct').textContent  =
+    ((final.interest / final.balance) * 100).toFixed(1) + '% do patrimônio';
+
+  // Charts
+  mainChart.data.labels = labels;
+  mainChart.data.datasets[0].data = balances;
+  mainChart.data.datasets[1].data = invested;
+  mainChart.data.datasets[2].data = interests;
+  mainChart.update('none');
+
+  barChart.data.labels = labels;
+  barChart.data.datasets[0].data = invested;
+  barChart.data.datasets[1].data = interests;
+  barChart.update('none');
+
+  renderMilestones(rows);
+  renderFire(rows);
+}
+
+// ── Wire up controls ─────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  makeMainChart();
+  makeBarChart();
+
+  initSlider('sl-salary', (v) => {
+    state.salary = v;
+    document.getElementById('lbl-salary').textContent = 'R$ ' + v.toLocaleString('pt-BR');
+    updateContribution();
+    render();
+  });
+
+  initSlider('sl-pct', (v) => {
+    state.pct = v;
+    document.getElementById('lbl-pct').textContent = v + '%';
+    updateContribution();
+    render();
+  });
+
+  initSlider('sl-years', (v) => {
+    state.years = v;
+    document.getElementById('lbl-years').textContent = v + (v === 1 ? ' ano' : ' anos');
+    highlightPreset(v);
+    render();
+  });
+
+  initSlider('sl-rate', (v) => {
+    state.rate = v;
+    document.getElementById('lbl-rate').textContent = v + '%';
+    render();
+  });
+
+  initSlider('sl-multiple', (v) => {
+    state.multiple = v;
+    document.getElementById('lbl-multiple').innerHTML =
+      v + '× <small style="font-size:.7rem;color:var(--muted)">' +
+      (v === 25 ? '(Regra 4%)' : v === 33 ? '(Regra 3%)' : '') + '</small>';
+    render();
+  });
+
+  // Investment type radios
+  document.querySelectorAll('input[name=inv]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const custom = document.getElementById('custom-rate-group');
+      if (radio.value === 'custom') {
+        custom.style.opacity = '1';
+        custom.style.pointerEvents = 'auto';
+        state.rate = +document.getElementById('sl-rate').value;
+      } else {
+        custom.style.opacity = '.35';
+        custom.style.pointerEvents = 'none';
+        state.rate = +radio.value;
+      }
+      render();
+    });
+  });
+
+  // Toggles
+  document.getElementById('chk-ir').addEventListener('change', (e) => {
+    state.applyIR = e.target.checked;
+    render();
+  });
+  document.getElementById('chk-inflation').addEventListener('change', (e) => {
+    state.inflation = e.target.checked;
+    render();
+  });
+
+  // Preset buttons
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const y = +btn.dataset.years;
+      document.getElementById('sl-years').value = y;
+      document.getElementById('sl-years').dispatchEvent(new Event('input'));
+    });
+  });
+
+  render();
+});
+
+function updateContribution() {
+  const c = state.salary * state.pct / 100;
+  document.getElementById('lbl-contribution').textContent =
+    'R$ ' + c.toLocaleString('pt-BR', { minimumFractionDigits: 0 });
+}
+
+function highlightPreset(years) {
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.years === years);
+  });
+}
+</script>
+</body>
+</html>
