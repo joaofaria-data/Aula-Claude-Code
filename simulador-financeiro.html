@@ -385,6 +385,25 @@
     }
     .fire-foot b { color: var(--green); font-weight: 700; }
 
+    /* ── Box de mercado ── */
+    .market-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+    @media (max-width: 760px) { .market-grid { grid-template-columns: 1fr 1fr; } }
+    .m-chip {
+      background:
+        radial-gradient(120% 100% at 0% 0%, rgba(255,255,255,.03), transparent 50%),
+        var(--surface);
+      border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.1rem;
+    }
+    .m-chip-label { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .55rem; }
+    .m-chip-value { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: -.02em; }
+    .m-chip-value small { font-size: .7rem; color: var(--muted); font-weight: 400; }
+    .m-chip-sub { font-size: .66rem; color: var(--muted); margin-top: .4rem; font-family: 'JetBrains Mono', monospace; }
+    .market-cta {
+      flex: 0 0 auto; min-width: auto !important; padding: .5rem 1rem !important;
+      border-color: var(--green) !important; color: var(--green) !important;
+      background: rgba(92,255,177,.07) !important; box-shadow: var(--glow-g);
+    }
+
     /* ── Marcos ── */
     .milestones { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .8rem; }
     .milestone {
@@ -440,6 +459,43 @@
       <div class="hs-sub" id="hs-sub">—</div>
     </div>
   </header>
+
+  <!-- ── Box de mercado (dados da pesquisa) ── -->
+  <section class="card anim d2" style="max-width:1320px;margin:0 auto 1.25rem;">
+    <div class="card-head">
+      <div class="card-title" style="margin:0">
+        <span class="dot dot-g"></span> Cenário de mercado ·
+        <span style="color:var(--text-2);text-transform:none;letter-spacing:0">consultado em <span id="market-date">01/06/2026</span></span>
+      </div>
+      <button class="preset-btn market-cta" id="apply-market">Usar Selic (14,5%) no simulador →</button>
+    </div>
+    <div class="market-grid">
+      <div class="m-chip">
+        <div class="m-chip-label">IPCA · inflação (12 meses)</div>
+        <div class="m-chip-value v-amber">4,14%</div>
+        <div class="m-chip-sub">projeção 2026: 4,91%</div>
+      </div>
+      <div class="m-chip">
+        <div class="m-chip-label">Selic · taxa básica</div>
+        <div class="m-chip-value v-aqua">14,50%</div>
+        <div class="m-chip-sub">desde 29/04 · próx. Copom 17/06</div>
+      </div>
+      <div class="m-chip">
+        <div class="m-chip-label">Poupança</div>
+        <div class="m-chip-value v-green">6,17% <small>+ TR</small></div>
+        <div class="m-chip-sub">Selic &gt; 8,5% → 0,5% a.m.</div>
+      </div>
+      <div class="m-chip">
+        <div class="m-chip-label">Tesouro IPCA+ 2029</div>
+        <div class="m-chip-value v-purple">IPCA + 7,84%</div>
+        <div class="m-chip-sub">≈ 12,7% a.a. nominal</div>
+      </div>
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);margin-top:1rem;line-height:1.5">
+      Fontes: Banco Central / Copom · IBGE (IPCA) · Tesouro Direto. Valores informativos coletados na data acima —
+      taxas de mercado variam diariamente e não constituem recomendação de investimento.
+    </p>
+  </section>
 
   <div class="layout">
 
@@ -1047,12 +1103,22 @@ window.addEventListener('DOMContentLoaded', () => {
   bind('chk-inflation', 'inflation');
   bind('chk-real', 'real');
 
-  document.querySelectorAll('.preset-btn').forEach(btn => {
+  document.querySelectorAll('.preset-btn[data-years]').forEach(btn => {
     btn.addEventListener('click', () => {
       const sl = document.getElementById('sl-years');
       sl.value = btn.dataset.years;
       sl.dispatchEvent(new Event('input'));
     });
+  });
+
+  // Aplica a Selic atual (14,5%) como taxa personalizada do simulador
+  document.getElementById('apply-market').addEventListener('click', () => {
+    const radio = document.getElementById('inv-custom');
+    const sl = document.getElementById('sl-rate');
+    sl.value = 14.5;
+    radio.checked = true;
+    radio.dispatchEvent(new Event('change'));
+    sl.dispatchEvent(new Event('input'));
   });
 
   render();
